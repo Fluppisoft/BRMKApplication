@@ -77,12 +77,25 @@ jobs:
           // 1️⃣ Verify membership in REQUIRED_ORG
           // --------------------------------------------------------------
           async function isMemberOfRequiredOrg() {
-            const { data: orgs } = await octokit.rest.orgs.listForUser({
+          try {
+            await octokit.rest.orgs.checkPublicMembershipForUser({
+              org: process.env.REQUIRED_ORG,
               username: applicant,
             });
-            return orgs.some(o =>
-              o.organization?.login?.toLowerCase() === process.env.REQUIRED_ORG.toLowerCase()
-            );
+            
+            // If we reach this line, the response was 204 → user is a public member.
+            return true;
+          } catch (error) {
+            // Octokit throws for non‑2xx responses.
+            // A 404 means “not a public member”. Anything else is an unexpected error.
+            if (error.status === 404) {
+              return false;
+            }
+            
+            // Re‑throw unexpected errors so callers can handle them (network issues,
+            // authentication failures, rate limits, etc.).
+            throw error;
+          }
           }
 
           // --------------------------------------------------------------
