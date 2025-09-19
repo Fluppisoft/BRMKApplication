@@ -1,7 +1,7 @@
-name: Apply‑to‑team automation
+name: Add to team
 on:
-  issues:
-    types: [opened]
+  issue_comment:
+    types: [created]
 
 jobs:
   process-application:
@@ -23,7 +23,7 @@ jobs:
         run: npm i @actions/core@latest
 
       # --------------------------------------------------------------
-      # 2️⃣ Core logic – verify org membership, add to team, comment & close
+      # 2️⃣ Core logic
       # --------------------------------------------------------------
       - name: Verify, add, comment & close
         env:
@@ -40,6 +40,7 @@ jobs:
           const token = process.env.GITHUB_TOKEN;
           const octokit = github.getOctokit(token);
           const ctx = github.context;
+          const commentBody = github.context.payload.comment.body.trim();
 
           // --------------------------------------------------------------
           // Information about the issue & its author
@@ -74,31 +75,6 @@ jobs:
           }
 
           // --------------------------------------------------------------
-          // 1️⃣ Verify membership in REQUIRED_ORG
-          // --------------------------------------------------------------
-          async function isMemberOfRequiredOrg() {
-          try {
-            await octokit.rest.orgs.checkPublicMembershipForUser({
-              org: process.env.REQUIRED_ORG,
-              username: applicant,
-            });
-            
-            // If we reach this line, the response was 204 → user is a public member.
-            return true;
-          } catch (error) {
-            // Octokit throws for non‑2xx responses.
-            // A 404 means “not a public member”. Anything else is an unexpected error.
-            if (error.status === 404) {
-              return false;
-            }
-            
-            // Re‑throw unexpected errors so callers can handle them (network issues,
-            // authentication failures, rate limits, etc.).
-            throw error;
-          }
-          }
-
-          // --------------------------------------------------------------
           // 2️⃣ Add user to TARGET_TEAM
           // --------------------------------------------------------------
           async function addToTeam() {
@@ -115,10 +91,9 @@ jobs:
           // --------------------------------------------------------------
           (async () => {
             try {
-              if (!(await isMemberOfRequiredOrg())) {
+              if (commentBody !== '/next') {
                 await comment(
-                  `❌ You are **not** a member of **${process.env.REQUIRED_ORG}** on GitHub. ` +
-                  `Please follow these steps to be allowed access to the Unreal Engine source code: https://www.unrealengine.com/en-US/ue-on-github`
+                  `Closing due to unexpected comment.`
                 );
                 await closeIssue();
                 return;
@@ -126,8 +101,7 @@ jobs:
 
               await addToTeam();
               await comment(
-                `✅ @${applicant}, you have been added to the **${process.env.TARGET_TEAM_SLUG}** team. ` +
-                `This issue is now closed.`
+                `✅ @${applicant}, you have been added to the modding team! Go here to download the latest BRMK version: https://github.com/Fluppisoft/BrickRigsModKit/releases `
               );
               await closeIssue();
             } catch (err) {
