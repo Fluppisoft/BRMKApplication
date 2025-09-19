@@ -32,12 +32,13 @@ jobs:
           TARGET_TEAM_SLUG: brick-rigs-modders
           # ------------------------------------------------------------------
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG_ADMIN_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
         run: |
           node <<'EOF'
           const core = require('@actions/core');
           const github = require('@actions/github');
 
-          const token = process.env.GITHUB_TOKEN;
+          const token = process.env.ORG_ADMIN_TOKEN;
           const octokit = github.getOctokit(token);
           const ctx = github.context;
           const commentBody = github.context.payload.comment.body.trim();
