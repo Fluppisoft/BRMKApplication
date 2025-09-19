@@ -77,10 +77,12 @@ jobs:
           // 1️⃣ Verify membership in REQUIRED_ORG
           // --------------------------------------------------------------
           async function isMemberOfRequiredOrg() {
-            return await octokit.rest.orgs.checkMembershipForUser({
-              org: process.env.REQUIRED_ORG,
+            const { data: orgs } = await octokit.rest.orgs.listForUser({
               username: applicant,
             });
+            return orgs.some(o =>
+              o.organization?.login?.toLowerCase() === process.env.REQUIRED_ORG.toLowerCase()
+            );
           }
 
           // --------------------------------------------------------------
