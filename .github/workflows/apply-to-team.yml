@@ -1,0 +1,125 @@
+name: Apply‑to‑team automation
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  process-application:
+    runs-on: ubuntu-latest
+
+    steps:
+      # --------------------------------------------------------------
+      # 1️⃣ Set up Node (we’ll run a short JS script)
+      # --------------------------------------------------------------
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install @actions/github helper
+        run: npm i @actions/github@latest
+
+      # --------------------------------------------------------------
+      # 2️⃣ Core logic – verify org membership, add to team, comment & close
+      # --------------------------------------------------------------
+      - name: Verify, add, comment & close
+        env:
+          REQUIRED_ORG: EpicGames
+          TARGET_ORG: Fluppisoft
+          TARGET_TEAM_SLUG: brick-rigs-modders
+          # ------------------------------------------------------------------
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node <<'EOF'
+          const core = require('@actions/core');
+          const github = require('@actions/github');
+
+          const token = process.env.GITHUB_TOKEN;
+          const octokit = github.getOctokit(token);
+          const ctx = github.context;
+
+          // --------------------------------------------------------------
+          // Information about the issue & its author
+          // --------------------------------------------------------------
+          const issueNumber = ctx.payload.issue.number;
+          const repoOwner   = ctx.repo.owner;
+          const repoName    = ctx.repo.repo;
+          const applicant   = ctx.payload.issue.user.login;   // issue creator
+
+          // --------------------------------------------------------------
+          // Helper: post a comment on the issue
+          // --------------------------------------------------------------
+          async function comment(body) {
+            await octokit.rest.issues.createComment({
+              owner: repoOwner,
+              repo: repoName,
+              issue_number: issueNumber,
+              body,
+            });
+          }
+
+          // --------------------------------------------------------------
+          // Helper: close the issue
+          // --------------------------------------------------------------
+          async function closeIssue() {
+            await octokit.rest.issues.update({
+              owner: repoOwner,
+              repo: repoName,
+              issue_number: issueNumber,
+              state: 'closed',
+            });
+          }
+
+          // --------------------------------------------------------------
+          // 1️⃣ Verify membership in REQUIRED_ORG
+          // --------------------------------------------------------------
+          async function isMemberOfRequiredOrg() {
+            const { data: orgs } = await octokit.rest.orgs.listMembershipsForUser({
+              username: applicant,
+            });
+            return orgs.some(o =>
+              o.organization?.login?.toLowerCase() === process.env.REQUIRED_ORG.toLowerCase()
+            );
+          }
+
+          // --------------------------------------------------------------
+          // 2️⃣ Add user to TARGET_TEAM
+          // --------------------------------------------------------------
+          async function addToTeam() {
+            await octokit.rest.teams.addOrUpdateMembershipForUserInOrg({
+              org: process.env.TARGET_ORG,
+              team_slug: process.env.TARGET_TEAM_SLUG,
+              username: applicant,
+              role: 'member',
+            });
+          }
+
+          // --------------------------------------------------------------
+          // 3️⃣ Main flow
+          // --------------------------------------------------------------
+          (async () => {
+            try {
+              if (!(await isMemberOfRequiredOrg())) {
+                await comment(
+                  `❌ @${applicant}, you are **not** a member of **${process.env.REQUIRED_ORG}** on GitHub. ` +
+                  `Please follow these steps to be allowed access to the Unreal Engine source code: https://www.unrealengine.com/en-US/ue-on-github`
+                );
+                await closeIssue();
+                return;
+              }
+
+              await addToTeam();
+              await comment(
+                `✅ @${applicant}, you have been added to the **${process.env.TARGET_TEAM_SLUG}** team. ` +
+                `This issue is now closed.`
+              );
+              await closeIssue();
+            } catch (err) {
+              console.error(err);
+              await comment(
+                `⚠️ An error occurred while processing your request: ${err.message}`
+              );
+              await closeIssue();
+            }
+          })();
+          EOF
