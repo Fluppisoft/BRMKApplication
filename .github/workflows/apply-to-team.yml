@@ -77,12 +77,10 @@ jobs:
           // 1️⃣ Verify membership in REQUIRED_ORG
           // --------------------------------------------------------------
           async function isMemberOfRequiredOrg() {
-            const { data: orgs } = await octokit.rest.orgs.listMembershipsForUser({
+            return await octokit.rest.orgs.checkMembershipForUser({
+              org: process.env.REQUIRED_ORG,
               username: applicant,
             });
-            return orgs.some(o =>
-              o.organization?.login?.toLowerCase() === process.env.REQUIRED_ORG.toLowerCase()
-            );
           }
 
           // --------------------------------------------------------------
@@ -104,7 +102,7 @@ jobs:
             try {
               if (!(await isMemberOfRequiredOrg())) {
                 await comment(
-                  `❌ @${applicant}, you are **not** a member of **${process.env.REQUIRED_ORG}** on GitHub. ` +
+                  `❌ You are **not** a member of **${process.env.REQUIRED_ORG}** on GitHub. ` +
                   `Please follow these steps to be allowed access to the Unreal Engine source code: https://www.unrealengine.com/en-US/ue-on-github`
                 );
                 await closeIssue();
