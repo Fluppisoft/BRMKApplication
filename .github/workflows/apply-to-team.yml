@@ -19,6 +19,9 @@ jobs:
       - name: Install @actions/github helper
         run: npm i @actions/github@latest
 
+      - name: Install @actions/core helper
+        run: npm i @actions/core@latest
+
       # --------------------------------------------------------------
       # 2️⃣ Core logic – verify org membership, add to team, comment & close
       # --------------------------------------------------------------
