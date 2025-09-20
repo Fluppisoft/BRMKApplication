@@ -15,5 +15,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "Thanks for your application. Please follow these steps to join the Epic Games organization on GitHub: https://www.unrealengine.com/en-US/ue-on-github. We will get back to you as soon as possible."
+              body: "Thank you for your application. Please follow these steps to join the Epic Games organization on GitHub: https://www.unrealengine.com/en-US/ue-on-github. We will get back to you as soon as possible."
             })
