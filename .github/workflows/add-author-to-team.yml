@@ -19,6 +19,7 @@ jobs:
         if: steps.moderator_check.outputs.result == 'true'
         uses: actions/github-script@v7
         with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const author = context.payload.issue.user.login;
             const team_slug = 'brick-rigs-modders';
