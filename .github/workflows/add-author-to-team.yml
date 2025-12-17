@@ -38,5 +38,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "You have been invited to the Brick Rigs modding team! Please check your email or GitHub notifications. After accepting the invite, you will be able to find the latest releases here: https://github.com/Fluppisoft/BrickRigsModKit/releases"
+              body: "You have been invited to the Brick Rigs modding team! Please check your email or GitHub notifications. After accepting the invite, you will be able to find the latest releases here: https://github.com/Fluppisoft/BrickRigsModKit/releases. You can also join the Discord server to connect with the modding community: https://discord.gg/3tEjEDExHA"
             });
