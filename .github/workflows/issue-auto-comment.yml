@@ -15,5 +15,18 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "Thank you for your application. Please follow these steps to join the Epic Games organization on GitHub: https://www.unrealengine.com/en-US/ue-on-github. We will get back to you as soon as possible."
+              body: [
+                "Thank you for your application!",
+                "",
+                "Before we can approve you, complete **both** steps:",
+                "",
+                "1. Join the Epic Games organization on GitHub: https://www.unrealengine.com/en-US/ue-on-github",
+                "2. Set your Epic Games membership visibility to **public** (required for automated verification). Because Epic Games has hundreds of thousands of members, the GitHub website often cannot change this setting — use this command instead (create a token at https://github.com/settings/tokens with the `read:org` scope):",
+                "",
+                "```bash",
+                `curl -X PUT -H "Authorization: Bearer YOUR_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/orgs/EpicGames/public_members/${context.payload.issue.user.login}`,
+                "```",
+                "",
+                "Once both steps are done, comment on this issue (for example: \"ready\") and your application will be checked automatically. You can also wait — we re-check open applications every 30 minutes."
+              ].join("\n")
             })
