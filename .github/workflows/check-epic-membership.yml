@@ -19,18 +19,45 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const EPIC_ORG = 'EpicGames';
+            const API_HEADERS = {
+              Accept: 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'Fluppisoft-BRMKApplication-membership-check'
+            };
 
+            // GITHUB_TOKEN cannot verify org membership in other orgs and
+            // returns 404 even for public members. Use unauthenticated public API calls.
             async function isEpicPublicMember(username) {
-              try {
-                await github.rest.orgs.checkPublicMembershipForUser({
-                  org: EPIC_ORG,
-                  username
-                });
-                return true;
-              } catch (error) {
-                if (error.status === 404) return false;
-                throw error;
+              const membershipUrl = `https://api.github.com/orgs/${EPIC_ORG}/public_members/${encodeURIComponent(username)}`;
+              const membershipResponse = await fetch(membershipUrl, { headers: API_HEADERS });
+              core.info(`Epic public_members check for ${username}: HTTP ${membershipResponse.status}`);
+
+              if (membershipResponse.status === 204) return true;
+              if (membershipResponse.status === 404) {
+                const orgsUrl = `https://api.github.com/users/${encodeURIComponent(username)}/orgs`;
+                const orgsResponse = await fetch(orgsUrl, { headers: API_HEADERS });
+                if (!orgsResponse.ok) {
+                  core.info(`Epic user orgs fallback for ${username}: HTTP ${orgsResponse.status}`);
+                  return false;
+                }
+
+                const orgs = await orgsResponse.json();
+                const orgLogins = orgs.map((org) => org.login);
+                core.info(`Epic user orgs fallback for ${username}: ${orgLogins.join(', ') || '(none)'}`);
+                return orgs.some((org) => org.login.toLowerCase() === EPIC_ORG.toLowerCase());
               }
+
+              const body = await membershipResponse.text();
+              throw new Error(`Unexpected HTTP ${membershipResponse.status} checking Epic membership for ${username}: ${body}`);
+            }
+
+            async function getIssueDetails(issueNumber) {
+              const { data } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              });
+              return data;
             }
 
             async function approveIssue(issue) {
@@ -54,9 +81,9 @@ jobs:
               });
             }
 
-            async function processIssue(issue) {
+            async function processIssue(issue, notifyOnFailure) {
               if (issue.state !== 'open') return;
-              if (issue.user.type === 'Bot') return;
+              if (!issue.user || issue.user.type === 'Bot') return;
 
               const author = issue.user.login;
               const isMember = await isEpicPublicMember(author);
@@ -66,8 +93,7 @@ jobs:
                 return;
               }
 
-              if (context.eventName === 'issue_comment' &&
-                  context.payload.comment.user.login === author) {
+              if (notifyOnFailure) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -90,9 +116,17 @@ jobs:
             }
 
             if (context.eventName === 'issue_comment') {
+              const comment = context.payload.comment;
               const issue = context.payload.issue;
+
               if (issue.pull_request) return;
-              await processIssue(issue);
+              if (comment.user.type === 'Bot') return;
+
+              const fullIssue = await getIssueDetails(issue.number);
+              const author = fullIssue.user.login;
+              const notifyOnFailure = comment.user.login === author;
+
+              await processIssue(fullIssue, notifyOnFailure);
               return;
             }
 
@@ -104,5 +138,6 @@ jobs:
 
             for (const issue of openIssues) {
               if (issue.pull_request) continue;
-              await processIssue(issue);
+              const fullIssue = await getIssueDetails(issue.number);
+              await processIssue(fullIssue, false);
             }
