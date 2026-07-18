@@ -15,40 +15,66 @@ jobs:
     steps:
       - name: Verify Epic Games membership and approve applications
         uses: actions/github-script@v7
+        env:
+          MEMBERSHIP_CHECK_TOKEN: ${{ secrets.ADD_TEAM_MEMBER_TOKEN }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const EPIC_ORG = 'EpicGames';
-            const API_HEADERS = {
-              Accept: 'application/vnd.github+json',
-              'X-GitHub-Api-Version': '2022-11-28',
-              'User-Agent': 'Fluppisoft-BRMKApplication-membership-check'
-            };
 
-            // GITHUB_TOKEN cannot verify org membership in other orgs and
-            // returns 404 even for public members. Use unauthenticated public API calls.
-            async function isEpicPublicMember(username) {
-              const membershipUrl = `https://api.github.com/orgs/${EPIC_ORG}/public_members/${encodeURIComponent(username)}`;
-              const membershipResponse = await fetch(membershipUrl, { headers: API_HEADERS });
-              core.info(`Epic public_members check for ${username}: HTTP ${membershipResponse.status}`);
+            if (!process.env.MEMBERSHIP_CHECK_TOKEN) {
+              throw new Error('ADD_TEAM_MEMBER_TOKEN secret is required for Epic membership checks.');
+            }
 
-              if (membershipResponse.status === 204) return true;
-              if (membershipResponse.status === 404) {
-                const orgsUrl = `https://api.github.com/users/${encodeURIComponent(username)}/orgs`;
-                const orgsResponse = await fetch(orgsUrl, { headers: API_HEADERS });
-                if (!orgsResponse.ok) {
-                  core.info(`Epic user orgs fallback for ${username}: HTTP ${orgsResponse.status}`);
-                  return false;
+            // GITHUB_TOKEN cannot verify org membership in other orgs. Use a PAT instead so
+            // requests are authenticated and get a much higher API rate limit than shared runner IPs.
+            const membershipGithub = getOctokit(process.env.MEMBERSHIP_CHECK_TOKEN);
+
+            async function withRateLimitRetry(fn, label) {
+              const maxAttempts = 3;
+
+              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  const isRateLimited = error.status === 403 &&
+                    String(error.message).toLowerCase().includes('rate limit');
+
+                  if (!isRateLimited || attempt === maxAttempts) {
+                    throw error;
+                  }
+
+                  const retryAfter = Number(error.response?.headers?.['retry-after'] || 60);
+                  core.warning(`${label}: rate limited, retrying in ${retryAfter}s (${attempt}/${maxAttempts})`);
+                  await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
                 }
+              }
+            }
 
-                const orgs = await orgsResponse.json();
-                const orgLogins = orgs.map((org) => org.login);
-                core.info(`Epic user orgs fallback for ${username}: ${orgLogins.join(', ') || '(none)'}`);
-                return orgs.some((org) => org.login.toLowerCase() === EPIC_ORG.toLowerCase());
+            async function isEpicPublicMember(username) {
+              try {
+                await withRateLimitRetry(
+                  () => membershipGithub.rest.orgs.checkPublicMembershipForUser({
+                    org: EPIC_ORG,
+                    username
+                  }),
+                  `Epic public_members check for ${username}`
+                );
+                core.info(`Epic public_members check for ${username}: member`);
+                return true;
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
               }
 
-              const body = await membershipResponse.text();
-              throw new Error(`Unexpected HTTP ${membershipResponse.status} checking Epic membership for ${username}: ${body}`);
+              const { data: orgs } = await withRateLimitRetry(
+                () => membershipGithub.request('GET /users/{username}/orgs', { username }),
+                `Epic user orgs fallback for ${username}`
+              );
+              const orgLogins = orgs.map((org) => org.login);
+              core.info(`Epic user orgs fallback for ${username}: ${orgLogins.join(', ') || '(none)'}`);
+              return orgs.some((org) => org.login.toLowerCase() === EPIC_ORG.toLowerCase());
             }
 
             async function getIssueDetails(issueNumber) {
