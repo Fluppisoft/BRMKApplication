@@ -20,6 +20,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { getOctokit } = require('@actions/github');
             const EPIC_ORG = 'EpicGames';
 
             if (!process.env.MEMBERSHIP_CHECK_TOKEN) {
