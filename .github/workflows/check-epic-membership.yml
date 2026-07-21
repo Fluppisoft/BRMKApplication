@@ -21,6 +21,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const EPIC_ORG = 'EpicGames';
+            const github = require("@actions/github");
 
             if (!process.env.MEMBERSHIP_CHECK_TOKEN) {
               throw new Error('ADD_TEAM_MEMBER_TOKEN secret is required for Epic membership checks.');
