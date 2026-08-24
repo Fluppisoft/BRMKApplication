@@ -4,11 +4,10 @@
 
 Welcome to the application process for the Brick Rigs Mod Kit (BRMK)! Please follow the steps below to apply:
 
-1. Open a new issue with a very brief introduction on the issues tab: https://github.com/Fluppisoft/BRMKApplication/issues
-2. Use this guide to join the Epic Games organization: https://www.unrealengine.com/ue-on-github
-3. Set your Epic Games membership visibility to **public** (required for automated verification — see the automated comment on your issue for instructions; the GitHub website often cannot do this for Epic Games because of its size)
-4. Comment on your issue once both Epic steps are done (or wait — applications are re-checked automatically every 30 minutes)
-5. Once verified, you will receive an automated comment on GitHub as well as an invitation via e-mail
+1. Use this guide to join the Epic Games organization: https://www.unrealengine.com/ue-on-github
+2. Open a new issue with a very brief introduction on the issues tab: https://github.com/Fluppisoft/BRMKApplication/issues
+3. Wait for us to accept the application.
+4. Once accepted, you will receive an automated comment on GitHub as well as an invitation via e-mail.
 
 ## How to install
 
