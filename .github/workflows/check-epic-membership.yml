@@ -20,6 +20,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { getOctokit } = require('@actions/github');
             const EPIC_ORG = 'EpicGames';
 
             if (!process.env.MEMBERSHIP_CHECK_TOKEN) {
@@ -28,7 +29,7 @@ jobs:
 
             // GITHUB_TOKEN cannot verify org membership in other orgs. Use a PAT instead so
             // requests are authenticated and get a much higher API rate limit than shared runner IPs.
-            const membershipGithub = github.getOctokit(process.env.MEMBERSHIP_CHECK_TOKEN);
+            const membershipGithub = getOctokit(process.env.MEMBERSHIP_CHECK_TOKEN);
 
             async function withRateLimitRetry(fn, label) {
               const maxAttempts = 3;
